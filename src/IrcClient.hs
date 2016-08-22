@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module IrcClient where -- (connect, IRC(..), ircParser, privmsg, privmsgParser, runIRC, write) where
 
-import Control.Applicative ((<*), (*>))
+import Control.Applicative ((<*), (*>), (<|>))
 import Control.Monad (forever)
 import qualified Data.Attoparsec.ByteString as AP
 import qualified Data.ByteString as BS
@@ -31,6 +31,7 @@ data IRC = Join Nick Chan
          | Part Nick Chan
          | Ping Server
          | Privmsg Target Message
+         | MOTD Message
   deriving (Show)
 
 -- TODO: Find out how to send a /who and receive the results.
@@ -51,8 +52,22 @@ takeUntilEOL = decodeLatin1 <$> AP.takeWhile (neq '\r')
 nickParser :: AP.Parser Nick
 nickParser = AP.string ":" *> (decodeLatin1 <$> AP.takeWhile1 (neq '!')) <* AP.take 1
 
+digitParser :: AP.Parser T.Text
+digitParser = decodeLatin1 <$> AP.takeWhile1 (AP.inClass "0123456789")
+
+-- | Parses A-Z and a-z.
+alfaParser :: AP.Parser T.Text
+alfaParser = decodeLatin1 <$> AP.takeWhile1 (\c -> ((c >= 65) && (c <= 90)) || ((c >= 97) && (c <= 122)))
+
+-- | Parses A-Z, a-z and 0-9.
+alfaNumParser :: AP.Parser T.Text
+alfaNumParser = AP.choice [digitParser, alfaParser]
+
+shortnameParser :: AP.Parser T.Text
+shortnameParser = foldr1 T.append <$> (AP.many1 $ AP.choice [alfaNumParser, decodeLatin1 <$> AP.string "-"])
+
 hostParser :: AP.Parser T.Text
-hostParser = decodeLatin1 <$> AP.takeWhile1 (neq ' ') <* AP.take 1
+hostParser = (foldr1 T.append <$> (AP.many' $ AP.choice [shortnameParser, decodeLatin1 <$> AP.string "."]))
 
 -- | Returns the name of the server that sent the ping.
 pingParser :: AP.Parser IRC
@@ -103,8 +118,16 @@ privmsgParser = do
   message <- takeUntilEOL
   return $ Privmsg target message
 
+motdParser :: AP.Parser IRC
+motdParser = do
+  AP.string ":"
+  hostParser
+  foldr1 (<|>) $ map AP.string ["375", "372", "376"]
+  AP.string " "
+  MOTD <$> takeUntilEOL
+
 ircParser :: AP.Parser IRC
-ircParser = AP.choice [pingParser, privmsgParser, joinParser, quitParser, partParser]
+ircParser = AP.choice [pingParser, privmsgParser, joinParser, quitParser, partParser, motdParser]
 
 -- | Connect to the server, set nick and all other needed parameters.
 -- Return the file handle.
