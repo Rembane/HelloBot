@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module IrcClient where -- (connect, IRC(..), ircParser, privmsg, privmsgParser, runIRC, write) where
 
-import Control.Applicative ((<*), (*>), (<|>))
+import Control.Applicative ((<*), (*>))
 import Control.Monad (forever)
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
@@ -19,6 +19,7 @@ type Nick     = T.Text
 type LongName = T.Text
 
 type Reason = T.Text
+type Prefix = T.Text
 type Target = T.Text -- User or channel
 type Message = T.Text
 
@@ -26,7 +27,7 @@ data IRC = Join Nick Chan
          | Quit Nick Reason
          | Part Nick Chan
          | Ping Server
-         | Privmsg Target Message
+         | Privmsg Nick Target Message
          | MOTD Message
   deriving (Show)
 
@@ -34,10 +35,10 @@ data IRC = Join Nick Chan
 
 -- | Take until \r\n has been reached. Throws newlines away.
 takeUntilEOL :: AP.Parser T.Text
-takeUntilEOL = AP.takeWhile (/= '\r')
+takeUntilEOL = AP.takeWhile ((/= '\r'))
 
 nickParser :: AP.Parser Nick
-nickParser = ":" *> (AP.takeWhile1 (/= '!')) <* AP.take 1
+nickParser = AP.takeWhile1 (/= '!')
 
 shortnameParser :: AP.Parser T.Text
 shortnameParser = foldr1 T.append <$> (AP.many1 $ AP.choice [AP.takeWhile1 isAlphaNum, "-"])
@@ -59,51 +60,50 @@ chanParser = do
 
 joinParser :: AP.Parser IRC
 joinParser = do
-  nick <- nickParser
-  hostParser
-  "JOIN :"
+  nick <- prefixParser
+  " JOIN :"
   chan <- chanParser
   return $ Join nick chan
 
 partParser :: AP.Parser IRC
 partParser = do
-  nick <- nickParser
-  hostParser
+  nick <- prefixParser
   "PART "
   chan <- chanParser
   return $ Part nick chan
 
 quitParser :: AP.Parser IRC
 quitParser = do
-  nick <- nickParser
-  hostParser
+  nick <- prefixParser
   "QUIT :"
   reason <- takeUntilEOL
   return $ Quit nick reason
 
 targetParser :: AP.Parser Target
-targetParser = AP.takeWhile1 (/= ' ') <* AP.take 1
+targetParser = AP.takeWhile1 (/= ' ')
+
+-- https://tools.ietf.org/html/rfc2812#section-2.3.1
+-- prefix = servername / ( nickname [ [ "!" user ] "@" host ] )
+prefixParser :: AP.Parser Nick
+prefixParser = AP.choice [complexPrefixParser, hostParser]
+  where
+    complexPrefixParser = nickParser <* "!" <* AP.takeWhile1 (/= '@') <* "@" <* hostParser
 
 privmsgParser :: AP.Parser IRC
 privmsgParser = do
-  nickParser
-  hostParser
-  "PRIVMSG "
-  target  <- targetParser
-  ":"
+  nick <- prefixParser
+  " PRIVMSG "
+  target <- targetParser
+  " :"
   message <- takeUntilEOL
-  return $ Privmsg target message
+  return $ Privmsg nick target message
 
 motdParser :: AP.Parser IRC
-motdParser = do
-  ":"
-  hostParser
-  foldr1 (<|>) ["375", "372", "376"]
-  " "
-  MOTD <$> takeUntilEOL
+motdParser = hostParser *> " " *> AP.choice ["375", "372", "376"] *> " " *> (MOTD <$> takeUntilEOL)
 
 ircParser :: AP.Parser IRC
-ircParser = AP.choice [pingParser, privmsgParser, joinParser, quitParser, partParser, motdParser]
+ircParser = do
+  AP.choice [pingParser, ":" *> AP.choice [motdParser, privmsgParser, joinParser, quitParser, partParser]]
 
 -- | Connect to the server, set nick and all other needed parameters.
 -- Return the file handle.
@@ -134,7 +134,7 @@ joinChannel h chan = do
   putStrLn $ "Joining channel " ++ (T.unpack chan)
 
 pong :: Handle -> Server -> IO ()
-pong h server = write h "PONG: " server
+pong h server = write h "PONG:" server
 
 -- | Read one line from handle and parse it.
 processLine :: Handle -> IO IRC
