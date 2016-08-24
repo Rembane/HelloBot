@@ -201,6 +201,6 @@ privmsg h c s = do
 -- | Write a command and a message to a handle.
 write :: Handle -> T.Text -> Message -> IO ()
 write h cmd msg = do
-  hPrintf h "%s %s\r\n" cmd msg
-  printf    "> %s %s\n" cmd msg
+  hPrintf h "%s %s\r\n" cmd $ B8.unpack $ E.encodeUtf8 msg
+  printf    "> %s %s\n" cmd $ B8.unpack $ E.encodeUtf8 msg
 
