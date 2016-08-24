@@ -6,7 +6,8 @@ import Control.Monad (forever)
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
-import Data.Text.Encoding as E
+import qualified Data.Text.Encoding as E
+import Data.Char (isAlpha, isAlphaNum)
 import Network (PortID(..), connectTo)
 import System.IO (BufferMode(..), Handle, hClose, hFlush, hGetLine, hSetBuffering, stdout)
 import Text.Printf (hPrintf, printf)
@@ -38,19 +39,8 @@ takeUntilEOL = AP.takeWhile (/= '\r')
 nickParser :: AP.Parser Nick
 nickParser = ":" *> (AP.takeWhile1 (/= '!')) <* AP.take 1
 
-digitParser :: AP.Parser T.Text
-digitParser = AP.takeWhile1 (AP.inClass "0123456789")
-
--- | Parses A-Z and a-z.
-alfaParser :: AP.Parser T.Text
-alfaParser = AP.takeWhile1 (\c -> ((c >= 'A') && (c <= 'Z')) || ((c >= 'a') && (c <= 'z')))
-
--- | Parses A-Z, a-z and 0-9.
-alfaNumParser :: AP.Parser T.Text
-alfaNumParser = AP.choice [digitParser, alfaParser]
-
 shortnameParser :: AP.Parser T.Text
-shortnameParser = foldr1 T.append <$> (AP.many1 $ AP.choice [alfaNumParser, "-"])
+shortnameParser = foldr1 T.append <$> (AP.many1 $ AP.choice [AP.takeWhile1 isAlphaNum, "-"])
 
 hostParser :: AP.Parser T.Text
 hostParser = (foldr1 T.append <$> (AP.many' $ AP.choice [shortnameParser, "."]))
