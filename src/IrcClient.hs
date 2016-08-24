@@ -5,6 +5,7 @@ import Control.Applicative ((<*), (*>))
 import Control.Monad (forever)
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Data.Char (isAlpha, isAlphaNum)
@@ -140,7 +141,7 @@ pong h server = write h "PONG:" server
 processLine :: Handle -> IO IRC
 processLine h = do
   input <- BS.hGetLine h
-  BS.putStrLn input
+  B8.putStrLn input
   case AP.maybeResult $ AP.parse ircParser $ E.decodeUtf8 $ input of
     Just    r -> return r
     Nothing   -> putStrLn "ERROR: Couldn't parse line. Trying again with next line." >> processLine h
