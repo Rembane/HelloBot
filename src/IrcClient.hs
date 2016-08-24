@@ -8,7 +8,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
-import Data.Char (isAlpha, isAlphaNum)
+import Data.Char (isAlpha, isAlphaNum, isSpace)
 import Network (PortID(..), connectTo)
 import System.IO (BufferMode(..), Handle, hClose, hFlush, hGetLine, hSetBuffering, stdout)
 import Text.Printf (hPrintf, printf)
@@ -30,6 +30,9 @@ data IRC = Join Nick Chan
          | Ping Server
          | Privmsg Nick Target Message
          | MOTD Message
+         | Topic Message
+         | Who [Nick]
+         | Notice Message
   deriving (Show)
 
 -- TODO: Find out how to send a /who and receive the results.
@@ -102,9 +105,19 @@ privmsgParser = do
 motdParser :: AP.Parser IRC
 motdParser = hostParser *> " " *> AP.choice ["375", "372", "376"] *> " " *> (MOTD <$> takeUntilEOL)
 
+topicParser :: AP.Parser IRC
+topicParser = hostParser *> " 332 " *> nickParser *> " " *> chanParser *> " :" *> (Topic <$> takeUntilEOL)
+
+-- TODO: Add support for 366 and multiline name lists.
+whoParser :: AP.Parser IRC
+whoParser = hostParser *> " 353 " *> nickParser *> AP.choice [" = ", " * ", " @ "] *> chanParser *> " :" *> (Who <$> (AP.sepBy1 (AP.takeWhile1 (not . isSpace)) " "))
+
+noticeParser :: AP.Parser IRC
+noticeParser = prefixParser *> " NOTICE " *> (Notice <$> takeUntilEOL)
+
 ircParser :: AP.Parser IRC
 ircParser = do
-  AP.choice [pingParser, ":" *> AP.choice [motdParser, privmsgParser, joinParser, quitParser, partParser]]
+  AP.choice [pingParser, ":" *> AP.choice [motdParser, topicParser, whoParser, noticeParser, privmsgParser, joinParser, quitParser, partParser]]
 
 -- | Connect to the server, set nick and all other needed parameters.
 -- Return the file handle.
@@ -135,7 +148,7 @@ joinChannel h chan = do
   putStrLn $ "Joining channel " ++ (T.unpack chan)
 
 pong :: Handle -> Server -> IO ()
-pong h server = write h "PONG:" server
+pong h server = write h "PONG" server
 
 -- | Read one line from handle and parse it.
 processLine :: Handle -> IO IRC
