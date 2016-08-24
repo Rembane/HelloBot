@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Parsers (parseIrc) where
 
 import Control.Applicative ((<*), (*>))
