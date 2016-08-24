@@ -78,7 +78,7 @@ chanParser :: AP.Parser Chan
 chanParser = do
   prefix  <- AP.choice ["#", "+", channelIdParser, "&"]
   channel <- AP.takeWhile1 (AP.notInClass " ,:\r\n\NUL\BEL")
-  return $ T.append prefix s
+  return $ T.append prefix channel
 
 joinParser :: AP.Parser IRC
 joinParser = do
@@ -173,7 +173,10 @@ processLine :: Handle -> IO IRC
 processLine h = do
   input <- BS.hGetLine h
   B8.putStrLn input
-  case AP.maybeResult $ AP.parse ircParser $ E.decodeUtf8 $ input of
+  let s = case E.decodeUtf8' input of
+            Left  _ -> E.decodeLatin1 input
+            Right s -> s
+  case AP.maybeResult $ AP.parse ircParser s of
     Just    r -> return r
     Nothing   -> putStrLn "ERROR: Couldn't parse line. Trying again with next line." >> processLine h
 
@@ -185,6 +188,10 @@ runIRC h f = forever $ do
   case irc of
     Ping server -> pong h server
     x           -> f x
+
+sendNotice :: Handle -> Nick -> Message -> IO ()
+sendNotice h n m = do
+  write h "NOTICE" (n `T.append` " :" `T.append` m)
 
 -- | Send a message to a channel or user.
 privmsg :: Handle -> Chan -> Message -> IO ()

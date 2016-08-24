@@ -82,6 +82,6 @@ main = do
 
 eval :: Handle -> IRC -> IO ()
 eval h irc = case irc of
-               Join nick chan -> privmsg h chan $ nick `T.append` ": Hej och välkommen till #dtek, här hänger snälla datateknologer, stanna här en stund vetja och insup atmosfären!"
+               Join nick chan -> sendNotice h nick "Hej och välkommen till #dtek, här hänger snälla datateknologer, stanna här en stund vetja och insup atmosfären!"
                _              -> return ()
 
