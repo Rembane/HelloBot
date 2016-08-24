@@ -5,19 +5,11 @@
 module Main where
 
 import Control.Applicative ((<$>))
-import Control.Exception (bracket, bracket_)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.State.Lazy (get, gets, evalStateT, put, runState, StateT)
-import Data.List (init, isInfixOf, isPrefixOf)
+import Control.Exception (bracket)
 import Data.Monoid ((<>))
 import qualified Data.Text as T
-import Data.Text (Text)
-import Options.Applicative (Parser, auto, execParser, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short, strOption, value)
-import System.Environment (getArgs)
-import System.Exit (ExitCode(..), exitWith)
-import System.IO (BufferMode(..), Handle, hClose, hFlush, hGetLine, hSetBuffering, stdout)
-import System.Random (StdGen, getStdGen, randomR)
-import Text.Printf (hPrintf, printf)
+import Options.Applicative (Parser, auto, execParser, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short, value)
+import System.IO (Handle, hClose)
 
 import IrcClient
 import Types
@@ -83,6 +75,6 @@ main = do
 
 eval :: Handle -> IRC -> IO ()
 eval h irc = case irc of
-               Join nick chan -> sendNotice h nick "Hej och välkommen till #dtek, här hänger snälla datateknologer, stanna här en stund vetja och insup atmosfären!"
+               Join nick _ -> sendNotice h nick "Hej och välkommen till #dtek, här hänger snälla datateknologer, stanna här en stund vetja och insup atmosfären!"
                _              -> return ()
 

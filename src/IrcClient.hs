@@ -7,7 +7,7 @@ import qualified Data.ByteString.Char8 as B8
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Network (PortID(..), connectTo)
-import System.IO (BufferMode(..), Handle, hClose, hFlush, hGetLine, hSetBuffering, stdout)
+import System.IO (BufferMode(..), Handle, hFlush, hSetBuffering, stdout)
 import Text.Printf (hPrintf, printf)
 
 import Parsers

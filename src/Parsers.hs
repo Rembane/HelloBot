@@ -6,7 +6,7 @@ import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
-import Data.Char (isAlpha, isAlphaNum, isAsciiUpper, isDigit, isSpace)
+import Data.Char (isAlpha, isAlphaNum, isAsciiUpper, isDigit)
 import Data.Ix (inRange)
 
 import Types
@@ -115,6 +115,6 @@ parseIrc :: BS.ByteString -> Maybe IRC
 parseIrc input = AP.maybeResult $ AP.parse ircParser s
   where
     s = case E.decodeUtf8' input of
-          Left  _ -> E.decodeLatin1 input
-          Right s -> s
+          Left  _      -> E.decodeLatin1 input
+          Right result -> result
 
