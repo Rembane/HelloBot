@@ -20,6 +20,7 @@ import System.Random (StdGen, getStdGen, randomR)
 import Text.Printf (hPrintf, printf)
 
 import IrcClient
+import Types
 
 data Options = Options {
   optServer   :: T.Text,

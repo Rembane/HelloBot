@@ -14,7 +14,7 @@ cabal-version:       >=1.10
 
 executable HelloBot
   main-is:             Main.hs
-  other-modules:       IrcClient
+  other-modules:       IrcClient, Parsers, Types
   -- other-extensions:
   build-depends:       base >=4.9 && <4.10,
                        attoparsec >= 0.13.0.2,
