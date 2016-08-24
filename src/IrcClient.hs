@@ -36,7 +36,7 @@ takeUntilEOL :: AP.Parser T.Text
 takeUntilEOL = AP.takeWhile (/= '\r')
 
 nickParser :: AP.Parser Nick
-nickParser = AP.string ":" *> (AP.takeWhile1 (/= '!')) <* AP.take 1
+nickParser = ":" *> (AP.takeWhile1 (/= '!')) <* AP.take 1
 
 digitParser :: AP.Parser T.Text
 digitParser = AP.takeWhile1 (AP.inClass "0123456789")
@@ -50,10 +50,10 @@ alfaNumParser :: AP.Parser T.Text
 alfaNumParser = AP.choice [digitParser, alfaParser]
 
 shortnameParser :: AP.Parser T.Text
-shortnameParser = foldr1 T.append <$> (AP.many1 $ AP.choice [alfaNumParser, AP.string "-"])
+shortnameParser = foldr1 T.append <$> (AP.many1 $ AP.choice [alfaNumParser, "-"])
 
 hostParser :: AP.Parser T.Text
-hostParser = (foldr1 T.append <$> (AP.many' $ AP.choice [shortnameParser, AP.string "."]))
+hostParser = (foldr1 T.append <$> (AP.many' $ AP.choice [shortnameParser, "."]))
 
 -- | Returns the name of the server that sent the ping.
 pingParser :: AP.Parser IRC
@@ -63,7 +63,7 @@ pingParser = Ping <$> (AP.string "PING :" *> takeUntilEOL)
 
 chanParser :: AP.Parser Chan
 chanParser = do
-  AP.string "#"
+  "#"
   s <- takeUntilEOL
   return $ T.append "#" s
 
@@ -71,7 +71,7 @@ joinParser :: AP.Parser IRC
 joinParser = do
   nick <- nickParser
   hostParser
-  AP.string "JOIN :"
+  "JOIN :"
   chan <- chanParser
   return $ Join nick chan
 
@@ -79,7 +79,7 @@ partParser :: AP.Parser IRC
 partParser = do
   nick <- nickParser
   hostParser
-  AP.string "PART "
+  "PART "
   chan <- chanParser
   return $ Part nick chan
 
@@ -87,7 +87,7 @@ quitParser :: AP.Parser IRC
 quitParser = do
   nick <- nickParser
   hostParser
-  AP.string "QUIT :"
+  "QUIT :"
   reason <- takeUntilEOL
   return $ Quit nick reason
 
@@ -98,18 +98,18 @@ privmsgParser :: AP.Parser IRC
 privmsgParser = do
   nickParser
   hostParser
-  AP.string "PRIVMSG "
+  "PRIVMSG "
   target  <- targetParser
-  AP.string ":"
+  ":"
   message <- takeUntilEOL
   return $ Privmsg target message
 
 motdParser :: AP.Parser IRC
 motdParser = do
-  AP.string ":"
+  ":"
   hostParser
-  foldr1 (<|>) $ map AP.string ["375", "372", "376"]
-  AP.string " "
+  foldr1 (<|>) ["375", "372", "376"]
+  " "
   MOTD <$> takeUntilEOL
 
 ircParser :: AP.Parser IRC
