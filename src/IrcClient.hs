@@ -3,15 +3,10 @@ module IrcClient where -- (connect, IRC(..), ircParser, privmsg, privmsgParser, 
 
 import Control.Applicative ((<*), (*>), (<|>))
 import Control.Monad (forever)
-import qualified Data.Attoparsec.ByteString as AP
+import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as B8
-import Data.Char (ord)
-import Data.Function (on)
-import Data.Maybe (maybe)
 import qualified Data.Text as T
-import Data.Text.Encoding (decodeLatin1)
-import Data.Word (Word8)
+import Data.Text.Encoding as E
 import Network (PortID(..), connectTo)
 import System.IO (BufferMode(..), Handle, hClose, hFlush, hGetLine, hSetBuffering, stdout)
 import Text.Printf (hPrintf, printf)
@@ -36,38 +31,29 @@ data IRC = Join Nick Chan
 
 -- TODO: Find out how to send a /who and receive the results.
 
-toWord8 :: Char -> Word8
-toWord8 = toEnum . ord
-
-neq :: Char -> (Word8 -> Bool)
-neq = (/=) . toWord8
-
 -- | Take until \r\n has been reached. Throws newlines away.
 takeUntilEOL :: AP.Parser T.Text
-takeUntilEOL = decodeLatin1 <$> AP.takeWhile (neq '\r')
-
--- crnlParser :: AP.Parser BS.ByteString
--- crnlParser = AP.string "\r\n"
+takeUntilEOL = AP.takeWhile (/= '\r')
 
 nickParser :: AP.Parser Nick
-nickParser = AP.string ":" *> (decodeLatin1 <$> AP.takeWhile1 (neq '!')) <* AP.take 1
+nickParser = AP.string ":" *> (AP.takeWhile1 (/= '!')) <* AP.take 1
 
 digitParser :: AP.Parser T.Text
-digitParser = decodeLatin1 <$> AP.takeWhile1 (AP.inClass "0123456789")
+digitParser = AP.takeWhile1 (AP.inClass "0123456789")
 
 -- | Parses A-Z and a-z.
 alfaParser :: AP.Parser T.Text
-alfaParser = decodeLatin1 <$> AP.takeWhile1 (\c -> ((c >= 65) && (c <= 90)) || ((c >= 97) && (c <= 122)))
+alfaParser = AP.takeWhile1 (\c -> ((c >= 'A') && (c <= 'Z')) || ((c >= 'a') && (c <= 'z')))
 
 -- | Parses A-Z, a-z and 0-9.
 alfaNumParser :: AP.Parser T.Text
 alfaNumParser = AP.choice [digitParser, alfaParser]
 
 shortnameParser :: AP.Parser T.Text
-shortnameParser = foldr1 T.append <$> (AP.many1 $ AP.choice [alfaNumParser, decodeLatin1 <$> AP.string "-"])
+shortnameParser = foldr1 T.append <$> (AP.many1 $ AP.choice [alfaNumParser, AP.string "-"])
 
 hostParser :: AP.Parser T.Text
-hostParser = (foldr1 T.append <$> (AP.many' $ AP.choice [shortnameParser, decodeLatin1 <$> AP.string "."]))
+hostParser = (foldr1 T.append <$> (AP.many' $ AP.choice [shortnameParser, AP.string "."]))
 
 -- | Returns the name of the server that sent the ping.
 pingParser :: AP.Parser IRC
@@ -106,7 +92,7 @@ quitParser = do
   return $ Quit nick reason
 
 targetParser :: AP.Parser Target
-targetParser = decodeLatin1 <$> AP.takeWhile1 (neq ' ') <* AP.take 1
+targetParser = AP.takeWhile1 (/= ' ') <* AP.take 1
 
 privmsgParser :: AP.Parser IRC
 privmsgParser = do
@@ -164,8 +150,8 @@ pong h server = write h "PONG: " server
 processLine :: Handle -> IO IRC
 processLine h = do
   input <- BS.hGetLine h
-  B8.putStrLn input
-  case AP.maybeResult $ AP.parse ircParser input of
+  BS.putStrLn input
+  case AP.maybeResult $ AP.parse ircParser $ E.decodeUtf8 $ input of
     Just    r -> return r
     Nothing   -> putStrLn "ERROR: Couldn't parse line. Trying again with next line." >> processLine h
 
