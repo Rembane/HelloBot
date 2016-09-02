@@ -6,10 +6,13 @@ module Main where
 
 import Control.Applicative ((<$>))
 import Control.Exception (bracket)
+import Control.Monad.Trans.Reader (runReaderT)
 import Data.Monoid ((<>))
 import qualified Data.Text as T
 import Options.Applicative (Parser, auto, execParser, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short, value)
 import System.IO (Handle, hClose)
+import System.Log.FastLogger (LogType(..), defaultBufSize, newTimedFastLogger)
+import System.Log.FastLogger.Date (newTimeCache)
 
 import IrcClient
 import Types
@@ -69,12 +72,22 @@ main = do
                          <> header "Welcome!"
                          )
 
-  bracket (connect (optServer cfg) (optPort cfg) (optChan cfg) (optNick cfg) (optLongName cfg))
-          hClose
-          (\h -> runIRC h (eval h))
+  tc <- newTimeCache timeLogFormat
+  (logger, logCleanup) <- newTimedFastLogger tc (LogStderr defaultBufSize)
 
-eval :: Handle -> IRC -> IO ()
-eval h irc = case irc of
-               Join nick _ -> sendNotice h nick "Hej och välkommen till #dtek, här hänger snälla datateknologer, stanna här en stund vetja och insup atmosfären!"
-               _              -> return ()
+  bracket (connect logger (optServer cfg) (optPort cfg))
+          (\cs -> (hClose $ handle cs) >> logCleanup)
+          (runReaderT (run (optChan cfg) (optNick cfg) (optLongName cfg)))
+
+run :: Chan -> Nick -> LongName -> Net ()
+run chan nick longname = do
+  setNick nick longname
+  joinChannel chan
+
+  runIRC eval
+
+eval :: IRC -> Net ()
+eval irc = case irc of
+             Join nick _ -> sendNotice nick "Hej och välkommen till #dtek, här hänger snälla datateknologer, stanna här en stund vetja och insup atmosfären!"
+             _           -> return ()
 

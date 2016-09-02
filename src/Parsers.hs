@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Parsers (parseIrc) where
+module Parsers (parseIrc, stableDecoder) where
 
 import Control.Applicative ((<*), (*>))
 import qualified Data.Attoparsec.Text as AP
@@ -110,11 +110,12 @@ ircParser :: AP.Parser IRC
 ircParser = do
   AP.choice [pingParser, ":" *> AP.choice [motdParser, topicParser, whoParser, noticeParser, privmsgParser, joinParser, quitParser, partParser]]
 
+stableDecoder :: BS.ByteString -> T.Text
+stableDecoder s = case E.decodeUtf8' s of
+                    Left  _      -> E.decodeLatin1 s
+                    Right result -> result
+
 -- | Parses one line of IRC communication.
 parseIrc :: BS.ByteString -> Maybe IRC
-parseIrc input = AP.maybeResult $ AP.parse ircParser s
-  where
-    s = case E.decodeUtf8' input of
-          Left  _      -> E.decodeLatin1 input
-          Right result -> result
+parseIrc = AP.maybeResult . AP.parse ircParser . stableDecoder
 

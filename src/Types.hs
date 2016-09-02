@@ -1,6 +1,9 @@
 module Types where
 
+import Control.Monad.Trans.Reader (ReaderT)
 import qualified Data.Text as T
+import System.IO (Handle)
+import System.Log.FastLogger (TimedFastLogger)
 
 type Server   = T.Text
 type Port     = Int
@@ -23,4 +26,10 @@ data IRC = Join Nick Chan
          | Who [Nick]
          | Notice Message
   deriving (Show)
+
+type Net = ReaderT ClientState IO
+data ClientState = ClientState
+  { handle :: Handle
+  , logger :: TimedFastLogger
+  }
 
