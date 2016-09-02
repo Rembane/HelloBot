@@ -35,7 +35,7 @@ logThis s = do
 -- Return the file handle.
 connect :: TimedFastLogger -> Server -> Port -> IO ClientState
 connect logger server port = do
-  logger $ emitter $ "Connecting to " `T.append` server `T.append` "..."
+  logger $ emitter $ "Connecting to " <> server <> "..."
   h <- connectTo (T.unpack server) (PortNumber $ fromIntegral $ port)
   hSetBuffering h LineBuffering
   logger $ emitter "Done."
@@ -45,16 +45,16 @@ connect logger server port = do
 setNick :: Nick -> LongName -> Net ()
 setNick nick longname = do
   write "NICK" nick
-  write "USER" $ nick `T.append` " 0 * :" `T.append` longname
-  logThis $ "Changing nick to: " `T.append` nick
-  logThis $ "Setting long name to: " `T.append` longname
+  write "USER" $ nick <> " 0 * :" <> longname
+  logThis $ "Changing nick to: " <> nick
+  logThis $ "Setting long name to: " <> longname
 
 -- | Join a channel
 -- TODO: We can join many channels but not have a clue of which channel we are in. This must be fixed!
 joinChannel :: Chan -> Net ()
 joinChannel chan = do
   write "JOIN" chan
-  logThis $ "Joining channel " `T.append` chan
+  logThis $ "Joining channel " <> chan
 
 pong :: Server -> Net ()
 pong server = write "PONG" server
@@ -80,12 +80,12 @@ runIRC f = forever $ do
 
 sendNotice :: Nick -> Message -> Net ()
 sendNotice n m = do
-  write "NOTICE" (n `T.append` " :" `T.append` m)
+  write "NOTICE" (n <> " :" <> m)
 
 -- | Send a message to a channel or user.
 privmsg :: Chan -> Message -> Net ()
 privmsg c s = do
-  write "PRIVMSG" (c `T.append` " :" `T.append` s)
+  write "PRIVMSG" (c <> " :" <> s)
 
 -- | Write a command and a message to a handle.
 write :: T.Text -> Message -> Net ()
